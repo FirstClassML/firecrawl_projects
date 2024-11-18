@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request  # type: ignore
 from firecrawl import FirecrawlApp
-import uvicorn
+import uvicorn  # type: ignore
 import threading
 import time
 from datetime import datetime
