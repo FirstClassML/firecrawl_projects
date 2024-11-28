@@ -23,7 +23,7 @@ jobs:
           pip install pydantic firecrawl-py
 
       - name: Run scraper
-        run: python firecrawl_scraper.py
+        run: python scheduling_scrapers/firecrawl_scraper.py
         env:
           # Add any environment variables your scraper needs
           FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
