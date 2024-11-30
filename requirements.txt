@@ -1,3 +1,4 @@
 pydantic
 firecrawl-py
 requests
+boto3
