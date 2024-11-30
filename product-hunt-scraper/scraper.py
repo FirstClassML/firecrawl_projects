@@ -1,4 +1,5 @@
 import json
+import boto3
 
 from firecrawl import FirecrawlApp
 from dotenv import load_dotenv
@@ -51,10 +52,16 @@ def get_yesterday_top_products():
 
 def save_yesterday_top_products():
     products = get_yesterday_top_products()
+
+    # Initialize S3 client
+    s3 = boto3.client("s3")
+
+    # Create filename with date
     date_str = datetime.now().strftime("%Y_%m_%d")
     filename = f"ph_top_products_{date_str}.json"
-    with open(filename, "w") as f:
-        json.dump(products, f)
+
+    # Upload to S3
+    s3.put_object(Bucket="sample-bucket-1801", Key=filename, Body=json.dumps(products))
 
 
 if __name__ == "__main__":
