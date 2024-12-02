@@ -27,6 +27,10 @@ def save_products(products):
 
 
 def main():
+
+    session = Session()
+    products = load_products()
+
     st.title("Price Tracker Dashboard")
 
     # Sidebar for adding new products
@@ -43,14 +47,30 @@ def main():
                     try:
                         product = asyncio.run(check_single_product(new_url))
                         products = load_products()
+
                         if new_url not in products:
+                            # Add to products list
                             products.append(new_url)
                             save_products(products)
-                            st.sidebar.success(f"Added: {product.name}")
+
+                            # Create initial price history entry
+                            new_price_entry = PriceHistory(
+                                product_url=new_url,
+                                price=product.price,
+                                timestamp=datetime.now(),
+                            )
+                            session.add(new_price_entry)
+                            session.commit()
+
+                            st.sidebar.success(
+                                f"Added and checked initial price for: {product.name} - ${product.price:.2f}"
+                            )
+                            st.rerun()
                         else:
                             st.sidebar.warning("Product already being tracked!")
                     except Exception as e:
                         st.sidebar.error(f"Error scraping product: {str(e)}")
+                        session.rollback()
                 else:
                     st.sidebar.error("Please enter a valid URL")
             except ValueError:
@@ -58,9 +78,6 @@ def main():
 
     # Main content - Product List
     st.header("Tracked Products")
-
-    session = Session()
-    products = load_products()
 
     if not products:
         st.info("No products are being tracked. Add some using the sidebar!")
@@ -125,26 +142,6 @@ def main():
                     )
                 else:
                     col1.info("No price history yet")
-                    if col1.button("Check price now", key=f"check_{url}"):
-                        try:
-                            product = asyncio.run(check_single_product(url))
-
-                            # Create new price history entry
-                            new_price_entry = PriceHistory(
-                                product_url=url,
-                                price=product.price,
-                                timestamp=datetime.now(),
-                            )
-                            session.add(new_price_entry)
-                            session.commit()
-
-                            st.success(
-                                f"Price checked for: {product.name} - ${product.price:.2f}"
-                            )
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error checking price: {str(e)}")
-                            session.rollback()
 
                 # Remove product button
                 if st.button("Remove from tracking", key=f"remove_{url}"):
