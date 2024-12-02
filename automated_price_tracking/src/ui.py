@@ -7,26 +7,51 @@ from sqlalchemy import desc
 from urllib.parse import urlparse
 import plotly.express as px
 
-from models import Product
-from storage import Session, PriceHistory
+from models import Product as PydanticProduct
+from storage import Session, PriceHistory, Product
 from config import settings
 from scraper import check_single_product
 
 
 class ProductManager:
     def __init__(self):
-        self.products_file = settings.PRODUCTS_FILE
+        self.session = Session()
 
     def load_products(self):
         try:
-            with open(self.products_file, "r") as f:
-                return json.load(f)
-        except FileNotFoundError:
+            db_products = self.session.query(Product).all()
+            return [
+                PydanticProduct(
+                    url=p.url,
+                    name=p.name,
+                    price=p.price,
+                    currency=p.currency,
+                    check_date=p.check_date,
+                    main_image_url=p.main_image_url,
+                )
+                for p in db_products
+            ]
+        except Exception:
             return []
 
-    def save_products(self, products):
-        with open(self.products_file, "w") as f:
-            json.dump(products, f, indent=2)
+    def save_product(self, pydantic_product):
+        db_product = Product(
+            url=pydantic_product.url,
+            name=pydantic_product.name,
+            price=pydantic_product.price,
+            currency=pydantic_product.currency,
+            check_date=pydantic_product.check_date,
+            main_image_url=pydantic_product.main_image_url,
+        )
+        self.session.add(db_product)
+        self.session.commit()
+
+    def remove_product(self, url):
+        product = self.session.query(Product).filter_by(url=url).first()
+        if product:
+            self.session.query(PriceHistory).filter_by(product_url=url).delete()
+            self.session.delete(product)
+            self.session.commit()
 
 
 class PriceTracker:
@@ -42,14 +67,12 @@ class PriceTracker:
             return False, "Please enter a valid URL"
 
         try:
-            product = await check_single_product(url)
-            products = self.product_manager.load_products()
-
-            if url in products:
+            existing_product = self.session.query(Product).filter_by(url=url).first()
+            if existing_product:
                 return False, "Product already being tracked!"
 
-            products.append(url)
-            self.product_manager.save_products(products)
+            product = await check_single_product(url)
+            self.product_manager.save_product(product)
             self._create_price_history(url, product.price)
             return (
                 True,
@@ -76,16 +99,6 @@ class PriceTracker:
 class DashboardUI:
     def __init__(self):
         self.tracker = PriceTracker()
-        self.product_names = {}  # Cache for product names
-
-    async def _get_product_name(self, url):
-        if url not in self.product_names:
-            try:
-                product = await check_single_product(url)
-                self.product_names[url] = product.name
-            except Exception:
-                self.product_names[url] = "Unknown Product"
-        return self.product_names[url]
 
     def render_sidebar(self):
         st.sidebar.header("Add New Product")
@@ -112,22 +125,19 @@ class DashboardUI:
         fig.update_yaxes(tickprefix="$", tickformat=".2f")
         return fig
 
-    def render_product_section(self, url):
+    def render_product_section(self, product):
         latest_price = (
             self.tracker.session.query(PriceHistory)
-            .filter_by(product_url=url)
+            .filter_by(product_url=product.url)
             .order_by(desc(PriceHistory.timestamp))
             .first()
         )
 
-        # Get product name asynchronously
-        product_name = asyncio.run(self._get_product_name(url))
-
-        with st.expander(f"{product_name}", expanded=False):
+        with st.expander(f"{product.name}", expanded=False):
             col1, col2, col3 = st.columns([3, 1, 1])
             price_history = pd.read_sql(
                 self.tracker.session.query(PriceHistory)
-                .filter_by(product_url=url)
+                .filter_by(product_url=product.url)
                 .statement,
                 self.tracker.session.bind,
             )
@@ -137,13 +147,13 @@ class DashboardUI:
                 col1.plotly_chart(fig, use_container_width=True)
                 col2.metric("Current Price", f"${latest_price.price:.2f}", delta=None)
             else:
-                self._handle_empty_price_history(col1, url)
+                self._handle_empty_price_history(col1, product.url)
 
             # Add visit product button
-            col3.link_button("Visit Product", url)
+            col3.link_button("Visit Product", product.url)
 
-            if st.button("Remove from tracking", key=f"remove_{url}"):
-                self._remove_product(url)
+            if st.button("Remove from tracking", key=f"remove_{product.url}"):
+                self._remove_product(product.url)
 
     def _handle_empty_price_history(self, col, url):
         col.info("No price history yet")
@@ -158,9 +168,7 @@ class DashboardUI:
                 self.tracker.session.rollback()
 
     def _remove_product(self, url):
-        products = self.tracker.product_manager.load_products()
-        products.remove(url)
-        self.tracker.product_manager.save_products(products)
+        self.tracker.product_manager.remove_product(url)
         st.success("Product removed from tracking!")
         st.rerun()
 
@@ -173,8 +181,8 @@ class DashboardUI:
         if not products:
             st.info("No products are being tracked. Add some using the sidebar!")
         else:
-            for url in products:
-                self.render_product_section(url)
+            for product in products:
+                self.render_product_section(product)
 
 
 def main():
