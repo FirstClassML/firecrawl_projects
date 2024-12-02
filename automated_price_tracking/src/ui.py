@@ -67,13 +67,37 @@ class PriceTracker:
             return False, "Please enter a valid URL"
 
         try:
-            existing_product = self.session.query(Product).filter_by(url=url).first()
+            # Normalize Amazon URL by extracting the product ID
+            normalized_url = self._normalize_amazon_url(url)
+            if not normalized_url:
+                return False, "Invalid Amazon product URL"
+
+            # Check if product exists using normalized URL
+            existing_product = (
+                self.session.query(Product).filter_by(url=normalized_url).first()
+            )
             if existing_product:
                 return False, "Product already being tracked!"
 
+            # Scrape product using original URL
             product = await check_single_product(url)
-            self.product_manager.save_product(product)
-            self._create_price_history(url, product.price)
+
+            # Use normalized URL for database
+            db_product = Product(
+                url=normalized_url,  # Use normalized URL
+                name=product.name,
+                price=product.price,
+                currency=product.currency,
+                check_date=product.check_date,
+                main_image_url=product.main_image_url,
+            )
+
+            self.session.add(db_product)
+            self.session.commit()
+
+            # Use normalized URL for price history
+            self._create_price_history(normalized_url, product.price)
+
             return (
                 True,
                 f"Added and checked initial price for: {product.name} - ${product.price:.2f}",
@@ -94,6 +118,24 @@ class PriceTracker:
         entry = PriceHistory(product_url=url, price=price, timestamp=datetime.now())
         self.session.add(entry)
         self.session.commit()
+
+    def _normalize_amazon_url(self, url):
+        """Normalize Amazon URL to a consistent format."""
+        try:
+            # Extract product ID (ASIN) from URL
+            if "/dp/" in url:
+                asin = url.split("/dp/")[1].split("/")[0]
+            elif "/gp/product/" in url:
+                asin = url.split("/gp/product/")[1].split("/")[0]
+            elif "/gp/aw/d/" in url:
+                asin = url.split("/gp/aw/d/")[1].split("/")[0]
+            else:
+                return None
+
+            # Return normalized URL format
+            return f"https://www.amazon.com/dp/{asin}"
+        except Exception:
+            return None
 
 
 class DashboardUI:
@@ -147,25 +189,13 @@ class DashboardUI:
                 col1.plotly_chart(fig, use_container_width=True)
                 col2.metric("Current Price", f"${latest_price.price:.2f}", delta=None)
             else:
-                self._handle_empty_price_history(col1, product.url)
+                col1.info("No price history available")
 
             # Add visit product button
             col3.link_button("Visit Product", product.url)
 
             if st.button("Remove from tracking", key=f"remove_{product.url}"):
                 self._remove_product(product.url)
-
-    def _handle_empty_price_history(self, col, url):
-        col.info("No price history yet")
-        if col.button("Check price now", key=f"check_{url}"):
-            try:
-                product = asyncio.run(check_single_product(url))
-                self.tracker._create_price_history(url, product.price)
-                st.success(f"Price checked for: {product.name} - ${product.price:.2f}")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error checking price: {str(e)}")
-                self.tracker.session.rollback()
 
     def _remove_product(self, url):
         self.tracker.product_manager.remove_product(url)
