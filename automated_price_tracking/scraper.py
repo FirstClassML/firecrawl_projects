@@ -27,9 +27,7 @@ def scrape_product(url: str):
     )
 
     # Add the scraping date to the extracted data
-    extracted_data["extract"]["timestamp"] = datetime.utcnow().strftime(
-        "%Y-%m-%d %H-%M"
-    )
+    extracted_data["extract"]["timestamp"] = datetime.utcnow()
 
     return extracted_data["extract"]
 

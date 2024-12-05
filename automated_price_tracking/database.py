@@ -50,20 +50,27 @@ class Database:
         finally:
             session.close()
 
-    # def add_price(self, url, price, timestamp):
-    #     """Add a price entry for a product"""
-    #     session = self.Session()
-    #     try:
-    #         price_history = PriceHistory(
-    #             id=f"{url}_{timestamp.strftime('%Y%m%d%H%M%S')}",
-    #             product_url=url,
-    #             price=price,
-    #             timestamp=timestamp,
-    #         )
-    #         session.add(price_history)
-    #         session.commit()
-    #     finally:
-    #         session.close()
+    def add_price(self, product_data):
+        session = self.Session()
+        try:
+            # Convert timestamp string to datetime if it's a string
+            timestamp = product_data["timestamp"]
+            if isinstance(timestamp, str):
+                timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H-%M")
+
+            price_history = PriceHistory(
+                id=f"{product_data['url']}_{timestamp.strftime('%Y%m%d%H%M%S')}",
+                product_url=product_data["url"],
+                name=product_data["name"],
+                price=product_data["price"],
+                currency=product_data["currency"],
+                main_image_url=product_data["main_image_url"],
+                timestamp=timestamp,
+            )
+            session.add(price_history)
+            session.commit()
+        finally:
+            session.close()
 
     # def get_price_history(self, url):
     #     """Get price history for a product"""
