@@ -53,6 +53,13 @@ class Database:
     def add_price(self, product_data):
         session = self.Session()
         try:
+            # First ensure the product exists
+            if not self.product_exists(product_data["url"]):
+                # Create the product if it doesn't exist
+                product = Product(url=product_data["url"])
+                session.add(product)
+                session.flush()  # Flush to ensure the product is created before adding price
+
             # Convert timestamp string to datetime if it's a string
             timestamp = product_data["timestamp"]
             if isinstance(timestamp, str):
@@ -72,18 +79,36 @@ class Database:
         finally:
             session.close()
 
-    # def get_price_history(self, url):
-    #     """Get price history for a product"""
-    #     session = self.Session()
-    #     try:
-    #         return (
-    #             session.query(PriceHistory)
-    #             .filter(PriceHistory.product_url == url)
-    #             .order_by(PriceHistory.timestamp.desc())
-    #             .all()
-    #         )
-    #     finally:
-    #         session.close()
+    def get_all_products(self):
+        session = self.Session()
+        try:
+            return session.query(Product).all()
+        finally:
+            session.close()
+
+    def get_price_history(self, url):
+        """Get price history for a product"""
+        session = self.Session()
+        try:
+            return (
+                session.query(PriceHistory)
+                .filter(PriceHistory.product_url == url)
+                .order_by(PriceHistory.timestamp.desc())
+                .all()
+            )
+        finally:
+            session.close()
+
+    def remove_all_products(self):
+        session = self.Session()
+        try:
+            # First delete all price histories
+            session.query(PriceHistory).delete()
+            # Then delete all products
+            session.query(Product).delete()
+            session.commit()
+        finally:
+            session.close()
 
     # def remove_product(self, url):
     #     """Remove a product and its price history"""
@@ -97,3 +122,13 @@ class Database:
     #             session.commit()
     #     finally:
     #         session.close()
+
+
+if __name__ == "__main__":
+    from dotenv import load_dotenv
+    import os
+
+    load_dotenv()
+
+    db = Database(os.getenv("POSTGRES_URL"))
+    db.remove_all_products()
