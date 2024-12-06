@@ -23,5 +23,5 @@ def check_prices():
         print(f"Added new price entry for {updated_product['name']}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__a":
     check_prices()
