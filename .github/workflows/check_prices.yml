@@ -29,4 +29,5 @@ jobs:
         env:
           FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: python automated_price_tracking/check_prices.py
