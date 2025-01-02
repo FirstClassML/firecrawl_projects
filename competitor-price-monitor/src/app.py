@@ -22,11 +22,11 @@ Session = sessionmaker(bind=engine)
 def add_product():
     """Form to add a new product"""
     with st.form("add_product"):
-        name = st.text_input("Product Name")
-        price = st.number_input("Your Price", min_value=0.0, step=0.01)
+        name = st.text_input("Product name")
+        price = st.number_input("Your price", min_value=0)
         url = st.text_input("Product URL (optional)")
 
-        if st.form_submit_button("Add Product"):
+        if st.form_submit_button("Add product"):
             session = Session()
             product = Product(name=name, your_price=price, url=url)
             session.add(product)
