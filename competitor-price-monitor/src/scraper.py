@@ -1,5 +1,8 @@
-import datetime
+import warnings
 
+warnings.filterwarnings("ignore")
+
+from datetime import datetime
 from firecrawl import FirecrawlApp
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
@@ -32,7 +35,7 @@ def scrape_competitor_product(url: str) -> dict:
 
     # Add timestamp to the extracted data
     data = extracted_data["extract"]
-    data["last_checked"] = datetime.datetime.now(datetime.UTC)
+    data["last_checked"] = datetime.utcnow()
 
     return data
 

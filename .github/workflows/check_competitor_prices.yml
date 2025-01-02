@@ -1,4 +1,4 @@
-name: Price Check
+name: Check competitor prices
 
 on:
   schedule:
