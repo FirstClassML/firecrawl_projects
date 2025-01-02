@@ -29,7 +29,7 @@ def update_competitor_prices():
 
             print(f"Updated price for {competitor.name}: ${data['price']}")
         except Exception as e:
-            print(f"Error updating {competitor.url}: {str(e)}")
+            print(f"Error updating {competitor.name}: {str(e)}")
 
     session.commit()
     session.close()
