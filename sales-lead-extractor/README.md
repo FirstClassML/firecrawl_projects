@@ -15,14 +15,14 @@ A Streamlit web application that extracts structured data from website URLs usin
 1. Clone the repository:
 
 ```bash
-git clone <https://github.com/yourusername/sales-lead-extractor.git>
+git clone https://github.com/yourusername/sales-lead-extractor.git
 cd sales-lead-extractor
 ```
 
 2. Install Poetry (if not already installed):
 
 ```bash
-curl -sSL <https://install.python-poetry.org> | python3 -
+curl -sSL https://install.python-poetry.org | python3 -
 ```
 
 3. Install dependencies:
